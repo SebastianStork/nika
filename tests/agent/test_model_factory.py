@@ -120,13 +120,16 @@ def test_load_model_custom_enables_thinking_extra_body() -> None:
         )
 
     kwargs = ctor.call_args.kwargs
-    assert kwargs["extra_body"] == {"chat_template_kwargs": {"enable_thinking": True}}
+    assert kwargs["extra_body"] == {
+        "reasoning_effort": "low",
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
     assert "reasoning_effort" not in kwargs
     assert kwargs["max_retries"] == 0
     assert fake._nika_max_retries == 3
 
 
-def test_load_model_custom_skips_thinking_extra_body_when_none() -> None:
+def test_load_model_custom_disables_thinking_when_none() -> None:
     fake = MagicMock(name="ReasoningChatOpenAI")
     with (
         patch(
@@ -141,6 +144,23 @@ def test_load_model_custom_skips_thinking_extra_body_when_none() -> None:
             model="qwen",
             reasoning_effort="none",
         )
+
+    assert ctor.call_args.kwargs["extra_body"] == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
+
+
+def test_load_model_custom_uses_server_default_when_effort_unset() -> None:
+    fake = MagicMock(name="ReasoningChatOpenAI")
+    with (
+        patch(
+            "agent.llm.model_factory.resolve_custom_base_url",
+            return_value="http://example:8000/v1",
+        ),
+        patch("agent.llm.model_factory.resolve_custom_api_key", return_value=None),
+        patch("agent.llm.model_factory.ReasoningChatOpenAI", return_value=fake) as ctor,
+    ):
+        load_model(llm_provider="custom", model="qwen")
 
     assert "extra_body" not in ctor.call_args.kwargs
 
@@ -163,6 +183,7 @@ def test_load_model_custom_sends_max_tokens_in_body() -> None:
 
     kwargs = ctor.call_args.kwargs
     assert kwargs["extra_body"] == {
+        "reasoning_effort": "low",
         "chat_template_kwargs": {"enable_thinking": True},
         "max_tokens": 8192,
     }

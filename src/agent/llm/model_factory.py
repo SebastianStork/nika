@@ -308,10 +308,15 @@ def _openai_model(*, retries: int, stream: bool, **kwargs: Any) -> ReasoningChat
 
 
 def _custom_extra_body(reasoning_effort: str | None) -> dict[str, Any] | None:
-    """Enable thinking on Qwen/vLLM-style custom servers when effort is set."""
-    if reasoning_effort is None or reasoning_effort == "none":
+    """Build reasoning controls for OpenAI-compatible custom servers."""
+    if reasoning_effort is None:
         return None
-    return {"chat_template_kwargs": {"enable_thinking": True}}
+    if reasoning_effort == "none":
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+    return {
+        "reasoning_effort": reasoning_effort,
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
 
 
 def load_model(
@@ -382,8 +387,8 @@ def load_model(
             "temperature": 0,
             "timeout": timeout,
         }
-        # Do not forward reasoning_effort: many OpenAI-compat servers (vLLM/Qwen)
-        # reject NIKA levels like ``xhigh``. Thinking is enabled via extra_body.
+        # ``null`` uses the server default, ``none`` disables thinking, and explicit
+        # effort levels are forwarded so the server can apply or reject them.
         extra_body = _custom_extra_body(reasoning_effort) or {}
         if max_tokens is not None:
             # ChatOpenAI renames max_tokens to max_completion_tokens, which not
