@@ -158,6 +158,7 @@ def prune_stale_images() -> list[str]:
     keep_digests = {
         f"{image_repository(ref)}@{ref.split('@', 1)[1]}" for ref in owned if "@" in ref
     }
+    keep_refs = keep_tags | keep_digests
     legacy = set(legacy_images())
     in_use = {
         container.attrs.get("Image")
@@ -179,11 +180,11 @@ def prune_stale_images() -> list[str]:
     for image in client.images.list():
         tags = list(image.tags)
         digests = set(image.attrs.get("RepoDigests") or [])
-        kept = bool(set(tags) & keep_tags or digests & keep_digests)
+        kept = bool(set(tags) & keep_refs or digests & keep_digests)
         stale = [
             tag
             for tag in tags
-            if tag not in keep_tags
+            if tag not in keep_refs
             and (tag in legacy or _is_nika_only_repo(image_repository(tag)))
         ]
         if not tags and not kept and digests:
